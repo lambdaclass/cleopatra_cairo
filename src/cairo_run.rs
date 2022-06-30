@@ -7,8 +7,8 @@ use std::fs::File;
 use std::io::{self, Error, ErrorKind, Write};
 use std::path::Path;
 
-pub fn cairo_run(path: &Path) -> Result<CairoRunner, CairoRunError> {
-    let program = match Program::new(path) {
+pub fn cairo_run(path: &Path, entrypoint: &str) -> Result<CairoRunner, CairoRunError> {
+    let program = match Program::new(path, entrypoint) {
         Ok(program) => program,
         Err(error) => return Err(CairoRunError::Program(error)),
     };
@@ -118,7 +118,7 @@ mod tests {
     use std::io::Read;
 
     fn run_test_program(program_path: &Path) -> Result<CairoRunner, CairoRunError> {
-        let program = match Program::new(program_path) {
+        let program = match Program::new(program_path, "main") {
             Ok(program) => program,
             Err(e) => return Err(CairoRunError::Program(e)),
         };
@@ -163,7 +163,7 @@ mod tests {
         // it should fail when the program is loaded.
         let no_data_program_path = Path::new("tests/support/no_data_program.json");
 
-        assert!(cairo_run(no_data_program_path).is_err());
+        assert!(cairo_run(no_data_program_path, "main").is_err());
     }
 
     #[test]
@@ -172,7 +172,7 @@ mod tests {
         // it should fail when trying to run initialize_main_entrypoint.
         let no_main_program_path = Path::new("tests/support/no_main_program.json");
 
-        assert!(cairo_run(no_main_program_path).is_err());
+        assert!(cairo_run(no_main_program_path, "main").is_err());
     }
 
     #[test]
@@ -181,7 +181,7 @@ mod tests {
         // decode the instruction.
         let invalid_memory = Path::new("tests/support/invalid_memory.json");
 
-        assert!(cairo_run(invalid_memory).is_err());
+        assert!(cairo_run(invalid_memory, "main").is_err());
     }
 
     #[test]

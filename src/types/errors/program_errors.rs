@@ -5,6 +5,7 @@ use std::io;
 pub enum ProgramError {
     IO(io::Error),
     Parse(serde_json::Error),
+    EntrypointNotFound(String),
 }
 
 impl From<serde_json::Error> for ProgramError {
@@ -30,6 +31,21 @@ impl fmt::Display for ProgramError {
                 write!(f, "Parsing error: ")?;
                 error.fmt(f)
             }
+            ProgramError::EntrypointNotFound(entrypoint) => {
+                f.write_fmt(format_args!("Entrypoint {} not found", entrypoint))
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_entrypoint_not_found_error() {
+        let error = ProgramError::EntrypointNotFound(String::from("my_function"));
+        let formatted_error = format!("{}", error);
+        assert_eq!(formatted_error, "Entrypoint my_function not found");
     }
 }
