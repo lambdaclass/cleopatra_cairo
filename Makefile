@@ -1,5 +1,8 @@
 .PHONY: deps build run check test clippy coverage benchmark flamegraph compare_benchmarks_deps compare_benchmarks
 
+nix-shell:
+	nix-shell shell.nix
+
 deps:
 	cargo install --version 1.1.0 cargo-criterion
 	cargo install --version 0.6.1 flamegraph
