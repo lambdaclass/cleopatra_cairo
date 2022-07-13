@@ -220,13 +220,21 @@ pub fn deserialize_program_json(path: &Path) -> Result<ProgramJson, ProgramError
     Ok(program_json)
 }
 
-pub fn deserialize_program(path: &Path) -> Result<Program, ProgramError> {
+pub fn deserialize_program(path: &Path, entrypoint: &str) -> Result<Program, ProgramError> {
     let program_json: ProgramJson = deserialize_program_json(path)?;
+
+    let main_pc = match program_json
+        .identifiers
+        .get(&format!("__main__.{}", entrypoint))
+    {
+        Some(entrypoint_identifier) => entrypoint_identifier.pc,
+        None => return Err(ProgramError::EntrypointNotFound(entrypoint.to_string())),
+    };
     Ok(Program {
         builtins: program_json.builtins,
         prime: program_json.prime,
         data: program_json.data,
-        main: program_json.identifiers["__main__.main"].pc,
+        main: main_pc,
         hints: program_json.hints,
         reference_manager: program_json.reference_manager,
     })
@@ -548,10 +556,24 @@ mod tests {
     }
 
     #[test]
+    fn deserialize_missing_entrypoint_gives_error() {
+        let deserialization_result = deserialize_program(
+            Path::new("cairo_programs/manually_compiled/valid_program_a.json"),
+            "missing_function",
+        );
+        assert!(deserialization_result.is_err());
+        assert!(matches!(
+            deserialization_result,
+            Err(ProgramError::EntrypointNotFound(_))
+        ));
+    }
+
+    #[test]
     fn deserialize_program_test() {
-        let program: Program = deserialize_program(Path::new(
-            "cairo_programs/manually_compiled/valid_program_a.json",
-        ))
+        let program: Program = deserialize_program(
+            Path::new("cairo_programs/manually_compiled/valid_program_a.json"),
+            "main",
+        )
         .expect("Failed to deserialize program");
 
         let builtins: Vec<String> = Vec::new();

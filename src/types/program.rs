@@ -15,8 +15,8 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn new(path: &Path) -> Result<Program, ProgramError> {
-        deserialize_program(path)
+    pub fn new(path: &Path, entrypoint: &str) -> Result<Program, ProgramError> {
+        deserialize_program(path, entrypoint)
     }
 }
 
@@ -27,9 +27,10 @@ mod tests {
 
     #[test]
     fn deserialize_program_test() {
-        let program: Program = Program::new(Path::new(
-            "cairo_programs/manually_compiled/valid_program_a.json",
-        ))
+        let program: Program = Program::new(
+            Path::new("cairo_programs/manually_compiled/valid_program_a.json"),
+            "main",
+        )
         .expect("Failed to deserialize program");
 
         let builtins: Vec<String> = Vec::new();

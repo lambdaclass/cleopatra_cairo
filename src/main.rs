@@ -14,6 +14,8 @@ struct Args {
     trace_file: Option<PathBuf>,
     #[structopt(long = "--print_output")]
     print_output: bool,
+    #[structopt(long = "--entrypoint", default_value = "main")]
+    entrypoint: String,
     trace: Option<PathBuf>,
     #[structopt(long = "--memory_file")]
     memory_file: Option<PathBuf>,
@@ -21,7 +23,7 @@ struct Args {
 
 fn main() -> Result<(), CairoRunError> {
     let args = Args::parse();
-    let mut cairo_runner = match cairo_run::cairo_run(&args.filename) {
+    let mut cairo_runner = match cairo_run::cairo_run(&args.filename, &args.entrypoint) {
         Ok(runner) => runner,
         Err(error) => return Err(error),
     };

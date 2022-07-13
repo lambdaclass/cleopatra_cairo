@@ -16,7 +16,7 @@ const BENCH_PATH: &'static str = "cairo_programs/benchmarks/";
 pub fn criterion_benchmarks(c: &mut Criterion) {
     for benchmark_name in build_bench_strings() {
         c.bench_function(&benchmark_name.0, |b| {
-            b.iter(|| cairo_run::cairo_run(black_box(Path::new(&benchmark_name.1))))
+            b.iter(|| cairo_run::cairo_run(black_box(Path::new(&benchmark_name.1)), "main"))
         });
     }
 }
