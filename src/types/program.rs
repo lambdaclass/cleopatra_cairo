@@ -1,4 +1,4 @@
-use crate::serde::deserialize_program::{deserialize_program, HintParams};
+use crate::serde::deserialize_program::{deserialize_program, HintParams, ReferenceManager};
 use crate::types::errors::program_errors::ProgramError;
 use crate::types::relocatable::MaybeRelocatable;
 use num_bigint::BigInt;
@@ -11,6 +11,7 @@ pub struct Program {
     pub data: Vec<MaybeRelocatable>,
     pub main: Option<usize>,
     pub hints: HashMap<usize, Vec<HintParams>>,
+    pub reference_manager: ReferenceManager,
 }
 
 impl Program {

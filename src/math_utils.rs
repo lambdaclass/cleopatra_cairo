@@ -1,7 +1,39 @@
-use crate::bigint;
+use std::ops::Shr;
+
+use crate::{bigint, vm::errors::vm_errors::VirtualMachineError};
 use num_bigint::BigInt;
 use num_integer::Integer;
-use num_traits::{abs, FromPrimitive};
+use num_traits::{abs, FromPrimitive, Signed};
+
+///Returns the integer square root of the nonnegative integer n.
+///This is the floor of the exact square root of n.
+///Unlike math.sqrt(), this function doesn't have rounding error issues.
+pub fn isqrt(n: &BigInt) -> Result<BigInt, VirtualMachineError> {
+    //n.shr(1) = n.div_floor(2)
+    if n.is_negative() {
+        return Err(VirtualMachineError::SqrtNegative(n.clone()));
+    }
+    let mut x = n.clone();
+    let mut y = (x.clone() + bigint!(1)).shr(1_i32);
+    while y < x {
+        x = y;
+        y = (x.clone() + n.div_floor(&x)).shr(1_i32);
+    }
+    if !(x.pow(2) <= *n && *n < (x.clone() + bigint!(1)).pow(2)) {
+        return Err(VirtualMachineError::FailedToGetSqrt(n.clone()));
+    };
+    Ok(x)
+}
+
+/// Returns the lift of the given field element, val, as an integer in the range (-prime/2, prime/2).
+pub fn as_int(val: &BigInt, prime: &BigInt) -> BigInt {
+    //n.shr(1) = n.div_floor(2)
+    if *val < prime.shr(1) {
+        val.clone()
+    } else {
+        val - prime
+    }
+}
 
 ///Returns x, y, g such that g = x*a + y*b = gcd(a, b).
 fn igcdex(num_a: BigInt, num_b: BigInt) -> (BigInt, BigInt, BigInt) {
@@ -411,5 +443,37 @@ mod tests {
             ),
             ec_add(point_a, point_b, &prime)
         );
+    }
+
+    #[test]
+    fn calculate_isqrt_a() {
+        let n = bigint!(81);
+        assert_eq!(isqrt(&n), Ok(bigint!(9)));
+    }
+
+    #[test]
+    fn calculate_isqrt_b() {
+        let n = bigint_str!(b"4573659632505831259480");
+        assert_eq!(isqrt(&(n.pow(2))), Ok(n));
+    }
+
+    #[test]
+    fn calculate_isqrt_c() {
+        let n = bigint_str!(
+            b"3618502788666131213697322783095070105623107215331596699973092056135872020481"
+        );
+        assert_eq!(isqrt(&(n.pow(2))), Ok(n));
+    }
+
+    #[test]
+    fn calculate_isqrt_zero() {
+        let n = bigint!(0);
+        assert_eq!(isqrt(&n), Ok(bigint!(0)));
+    }
+
+    #[test]
+    fn calculate_isqrt_negative() {
+        let n = bigint!(-1);
+        assert_eq!(isqrt(&n), Err(VirtualMachineError::SqrtNegative(n)));
     }
 }

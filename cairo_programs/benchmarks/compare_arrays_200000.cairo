@@ -21,7 +21,7 @@ end
 	
 func main():
     alloc_locals
-    tempvar array_length = 100
+    tempvar array_length = 50000
     let (array_a : felt*) = alloc()
     let (array_b : felt*) = alloc()
     fill_array(array_a, 7, 3, array_length, 0)

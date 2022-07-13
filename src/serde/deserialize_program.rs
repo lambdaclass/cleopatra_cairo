@@ -1,10 +1,12 @@
+use crate::serde::deserialize_utils;
+use crate::types::instruction::Register;
 use crate::types::{
     errors::program_errors::ProgramError, program::Program, relocatable::MaybeRelocatable,
 };
 use num_bigint::{BigInt, Sign};
 use num_traits::abs;
 use serde::{de, de::MapAccess, de::SeqAccess, Deserialize, Deserializer};
-use std::{collections::HashMap, fmt, fs::File, io::BufReader, ops::Rem, path::Path};
+use std::{collections::HashMap, fmt, fs::File, io::BufReader, path::Path};
 
 #[derive(Deserialize, Debug)]
 pub struct ProgramJson {
@@ -15,6 +17,7 @@ pub struct ProgramJson {
     pub data: Vec<MaybeRelocatable>,
     pub identifiers: HashMap<String, Identifier>,
     pub hints: HashMap<usize, Vec<HintParams>>,
+    pub reference_manager: ReferenceManager,
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
@@ -31,14 +34,39 @@ pub struct FlowTrackingData {
     #[serde(deserialize_with = "deserialize_map_to_string_and_bigint_hashmap")]
     pub reference_ids: HashMap<String, BigInt>,
 }
+
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct ApTracking {
     pub group: usize,
     pub offset: usize,
 }
+
 #[derive(Deserialize, Debug)]
 pub struct Identifier {
     pub pc: Option<usize>,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub struct ReferenceManager {
+    pub references: Vec<Reference>,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub struct Reference {
+    pub ap_tracking_data: ApTracking,
+    pub pc: Option<usize>,
+    #[serde(deserialize_with = "deserialize_value_address")]
+    #[serde(rename(deserialize = "value"))]
+    pub value_address: ValueAddress,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub struct ValueAddress {
+    pub register: Option<Register>,
+    pub offset1: i32,
+    pub offset2: i32,
+    pub immediate: Option<BigInt>,
+    pub dereference: bool,
 }
 
 struct BigIntVisitor;
@@ -57,7 +85,7 @@ impl<'de> de::Visitor<'de> for BigIntVisitor {
         // Strip the '0x' prefix from the encoded hex string
         if let Some(no_prefix_hex) = value.strip_prefix("0x") {
             // Add padding if necessary
-            let no_prefix_hex = maybe_add_padding(no_prefix_hex.to_string());
+            let no_prefix_hex = deserialize_utils::maybe_add_padding(no_prefix_hex.to_string());
             let decoded_result: Result<Vec<u8>, hex::FromHexError> = hex::decode(&no_prefix_hex);
 
             match decoded_result {
@@ -88,7 +116,7 @@ impl<'de> de::Visitor<'de> for MaybeRelocatableVisitor {
         while let Some(value) = seq.next_element::<String>()? {
             if let Some(no_prefix_hex) = value.strip_prefix("0x") {
                 // Add padding if necessary
-                let no_prefix_hex = maybe_add_padding(no_prefix_hex.to_string());
+                let no_prefix_hex = deserialize_utils::maybe_add_padding(no_prefix_hex.to_string());
                 let decoded_result: Result<Vec<u8>, hex::FromHexError> =
                     hex::decode(&no_prefix_hex);
 
@@ -137,6 +165,29 @@ impl<'de> de::Visitor<'de> for ReferenceIdsVisitor {
     }
 }
 
+struct ValueAddressVisitor;
+
+impl<'de> de::Visitor<'de> for ValueAddressVisitor {
+    type Value = ValueAddress;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a string representing the address in memory of a variable")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let res = match value.chars().next() {
+            Some('[') => deserialize_utils::parse_dereference(value).map_err(de::Error::custom)?,
+            Some('c') => deserialize_utils::parse_reference(value).map_err(de::Error::custom)?,
+            _c => return Err("Expected '[' or 'c' as first char").map_err(de::Error::custom),
+        };
+
+        Ok(res)
+    }
+}
+
 pub fn deserialize_bigint_hex<'de, D: Deserializer<'de>>(d: D) -> Result<BigInt, D::Error> {
     d.deserialize_str(BigIntVisitor)
 }
@@ -153,14 +204,10 @@ pub fn deserialize_map_to_string_and_bigint_hashmap<'de, D: Deserializer<'de>>(
     d.deserialize_map(ReferenceIdsVisitor)
 }
 
-// Checks if the hex string has an odd length.
-// If that is the case, prepends '0' to it.
-fn maybe_add_padding(mut hex: String) -> String {
-    if hex.len().rem(2) != 0 {
-        hex.insert(0, '0');
-        return hex;
-    }
-    hex
+pub fn deserialize_value_address<'de, D: Deserializer<'de>>(
+    d: D,
+) -> Result<ValueAddress, D::Error> {
+    d.deserialize_str(ValueAddressVisitor)
 }
 
 pub fn deserialize_program_json(path: &Path) -> Result<ProgramJson, ProgramError> {
@@ -188,6 +235,7 @@ pub fn deserialize_program(path: &Path, entrypoint: &str) -> Result<Program, Pro
         data: program_json.data,
         main: main_pc,
         hints: program_json.hints,
+        reference_manager: program_json.reference_manager,
     })
 }
 
@@ -276,6 +324,42 @@ mod tests {
                             }
                         }
                     ]
+                },
+                "reference_manager": {
+                    "references": [
+                        {
+                            "ap_tracking_data": {
+                                "group": 0,
+                                "offset": 0
+                            },
+                            "pc": 0,
+                            "value": "[cast(fp + (-4), felt*)]"
+                        },
+                        {
+                            "ap_tracking_data": {
+                                "group": 0,
+                                "offset": 0
+                            },
+                            "pc": 0,
+                            "value": "[cast(fp + (-3), felt*)]"
+                        },
+                        {
+                            "ap_tracking_data": {
+                                "group": 0,
+                                "offset": 0
+                            },
+                            "pc": 0,
+                            "value": "cast([fp + (-3)] + 2, felt)"
+                        },
+                        {
+                            "ap_tracking_data": {
+                                "group": 0,
+                                "offset": 0
+                            },
+                            "pc": 0,
+                            "value": "[cast(fp, felt*)]"
+                        }
+                    ]
                 }
             }"#;
 
@@ -332,11 +416,73 @@ mod tests {
             }],
         );
 
+        let reference_manager = ReferenceManager {
+            references: vec![
+                Reference {
+                    ap_tracking_data: ApTracking {
+                        group: 0,
+                        offset: 0,
+                    },
+                    pc: Some(0),
+                    value_address: ValueAddress {
+                        register: Some(Register::FP),
+                        offset1: -4,
+                        offset2: 0,
+                        immediate: None,
+                        dereference: true,
+                    },
+                },
+                Reference {
+                    ap_tracking_data: ApTracking {
+                        group: 0,
+                        offset: 0,
+                    },
+                    pc: Some(0),
+                    value_address: ValueAddress {
+                        register: Some(Register::FP),
+                        offset1: -3,
+                        offset2: 0,
+                        immediate: None,
+                        dereference: true,
+                    },
+                },
+                Reference {
+                    ap_tracking_data: ApTracking {
+                        group: 0,
+                        offset: 0,
+                    },
+                    pc: Some(0),
+                    value_address: ValueAddress {
+                        register: Some(Register::FP),
+                        offset1: -3,
+                        offset2: 0,
+                        immediate: Some(bigint!(2)),
+                        dereference: false,
+                    },
+                },
+                Reference {
+                    ap_tracking_data: ApTracking {
+                        group: 0,
+                        offset: 0,
+                    },
+                    pc: Some(0),
+                    value_address: ValueAddress {
+                        register: Some(Register::FP),
+                        offset1: 0,
+                        offset2: 0,
+                        immediate: None,
+                        dereference: true,
+                    },
+                },
+            ],
+        };
+
         assert_eq!(program_json.prime, bigint!(10));
         assert_eq!(program_json.builtins, builtins);
         assert_eq!(program_json.data, data);
         assert_eq!(program_json.identifiers["__main__.main"].pc, Some(0));
         assert_eq!(program_json.hints, hints);
+        assert_eq!(program_json.reference_manager, reference_manager);
     }
 
     #[test]

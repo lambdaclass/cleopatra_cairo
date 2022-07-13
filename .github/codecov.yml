@@ -1,0 +1,3 @@
+ignore:
+  - src/vm/errors
+  - src/types/errors

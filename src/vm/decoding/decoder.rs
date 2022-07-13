@@ -51,16 +51,16 @@ pub fn decode_instruction(
     let opcode_num = (flags & OPCODE_MASK) >> OPCODE_OFF;
 
     // Match each flag to its corresponding enum value
-    let dst_register = match dst_reg_num {
-        0 => instruction::Register::AP,
-        1 => instruction::Register::FP,
-        _ => return Err(VirtualMachineError::InvalidDstReg(dst_reg_num)),
+    let dst_register = if dst_reg_num == 1 {
+        instruction::Register::FP
+    } else {
+        instruction::Register::AP
     };
 
-    let op0_register = match op0_reg_num {
-        0 => instruction::Register::AP,
-        1 => instruction::Register::FP,
-        _ => return Err(VirtualMachineError::InvalidOp0Reg(dst_reg_num)),
+    let op0_register = if op0_reg_num == 1 {
+        instruction::Register::FP
+    } else {
+        instruction::Register::AP
     };
 
     let op1_addr = match op1_src_num {
@@ -147,6 +147,44 @@ mod decoder_test {
     use crate::bigint;
 
     use super::*;
+
+    #[test]
+    fn invalid_op1_reg() {
+        let error = decode_instruction(0x294F800080008000, None);
+        assert_eq!(error, Err(VirtualMachineError::InvalidOp1Reg(3)));
+        assert_eq!(
+            error.unwrap_err().to_string(),
+            "Invalid op1_register value: 3"
+        )
+    }
+
+    #[test]
+    fn invalid_pc_update() {
+        let error = decode_instruction(0x29A8800080008000, None);
+        assert_eq!(error, Err(VirtualMachineError::InvalidPcUpdate(3)));
+        assert_eq!(error.unwrap_err().to_string(), "Invalid pc_update value: 3")
+    }
+
+    #[test]
+    fn invalid_res_logic() {
+        let error = decode_instruction(0x2968800080008000, None);
+        assert_eq!(error, Err(VirtualMachineError::InvalidRes(3)));
+        assert_eq!(error.unwrap_err().to_string(), "Invalid res value: 3")
+    }
+
+    #[test]
+    fn invalid_opcode() {
+        let error = decode_instruction(0x3948800080008000, None);
+        assert_eq!(error, Err(VirtualMachineError::InvalidOpcode(3)));
+        assert_eq!(error.unwrap_err().to_string(), "Invalid opcode value: 3")
+    }
+
+    #[test]
+    fn invalid_ap_update() {
+        let error = decode_instruction(0x2D48800080008000, None);
+        assert_eq!(error, Err(VirtualMachineError::InvalidApUpdate(3)));
+        assert_eq!(error.unwrap_err().to_string(), "Invalid ap_update value: 3")
+    }
 
     #[test]
     fn decode_flags_call_add_jmp_add_imm_fp_fp() {
