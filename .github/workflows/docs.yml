@@ -1,0 +1,46 @@
+name: docs
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Install Rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          components: rustfmt, clippy
+      - name: Checkout main
+        uses: actions/checkout@v3
+      - name: Make Docs
+        run: make docs
+      - name: Jekyll fix
+        run: touch target/doc/.nojekyll
+      - name: Set short sha output
+        id: short_sha
+        run: echo "::set-output name=sha::$(git rev-parse --short HEAD)"
+      - name: Checkout gh-pages
+        uses: actions/checkout@v3
+        with:
+          ref: gh-pages
+          path: target/doc-deploy
+      - name: Sync docs dir
+        shell: bash
+        run: |
+          rsync -q -av --checksum --progress ./target/doc/* ./target/doc-deploy -r
+          cd ./target/doc-deploy
+      - name: Open pull request
+        uses: peter-evans/create-pull-request@v4
+        with:
+          path: target/doc-deploy
+          base: gh-pages
+          branch: gh-pages_${{ steps.short_sha.outputs.sha }}
+          commit-message: update html docs for ${{ steps.short_sha.outputs.sha }}
+          draft: false
+          title: Automated documentation update for ${{ steps.short_sha.outputs.sha }}
+          body: |
+            This automated PR updates rust docs following ${{ github.sha }}.
+          labels: documentation

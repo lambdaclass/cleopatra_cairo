@@ -17,7 +17,7 @@ struct Args {
     #[structopt(long = "--entrypoint", default_value = "main")]
     entrypoint: String,
     trace: Option<PathBuf>,
-    #[structopt(long = "--print_memory")]
+    #[structopt(long = "--memory_file")]
     memory_file: Option<PathBuf>,
 }
 

@@ -40,3 +40,5 @@ jobs:
         alert-threshold: '130%'
         comment-on-alert: true
         alert-comment-cc-users: '@unbalancedparentheses'
+    - name: Clean benches
+      run: make clean

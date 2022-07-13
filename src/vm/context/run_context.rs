@@ -21,7 +21,7 @@ impl RunContext {
             Register::AP => &self.ap,
             Register::FP => &self.fp,
         };
-        base_addr.add_int_mod(instruction.off0.clone(), self.prime.clone())
+        base_addr.add_int_mod(&instruction.off0, &self.prime)
     }
 
     pub fn compute_op0_addr(
@@ -32,7 +32,7 @@ impl RunContext {
             Register::AP => &self.ap,
             Register::FP => &self.fp,
         };
-        base_addr.add_int_mod(instruction.off1.clone(), self.prime.clone())
+        base_addr.add_int_mod(&instruction.off1, &self.prime)
     }
 
     pub fn compute_op1_addr(
@@ -48,13 +48,11 @@ impl RunContext {
                 false => return Err(VirtualMachineError::ImmShouldBe1),
             },
             Op1Addr::Op0 => match op0 {
-                Some(addr) => {
-                    return addr.add_int_mod(instruction.off2.clone(), self.prime.clone())
-                }
+                Some(addr) => return addr.add_int_mod(&instruction.off2, &self.prime),
                 None => return Err(VirtualMachineError::UnknownOp0),
             },
         };
-        base_addr.add_int_mod(instruction.off2.clone(), self.prime.clone())
+        base_addr.add_int_mod(&instruction.off2, &self.prime)
     }
 }
 

@@ -32,6 +32,8 @@ jobs:
       run: make build
     - name: Run tests
       run: make test
+    - name: Compare trace and memory
+      run: make compare_trace_memory
     - name: Run clippy
       run: make clippy
     - name: Coverage
@@ -41,4 +43,4 @@ jobs:
       with:
         fail_ci_if_error:     true
     - name: Cleanup tests
-      run: rm cairo_programs/*.json
+      run: make clean

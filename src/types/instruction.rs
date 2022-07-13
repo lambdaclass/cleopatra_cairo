@@ -1,11 +1,13 @@
 use num_bigint::BigInt;
+use serde::Deserialize;
 
-#[derive(Debug, PartialEq)]
+#[derive(Deserialize, Debug, PartialEq, Clone)]
 pub enum Register {
     AP,
     FP,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Instruction {
     pub off0: BigInt,
     pub off1: BigInt,
