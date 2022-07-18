@@ -1,7 +1,7 @@
 use crate::bigint;
 use crate::types::exec_scope::ExecutionScopes;
 use crate::types::instruction::{ApUpdate, FpUpdate, Instruction, Opcode, PcUpdate, Res};
-use crate::types::relocatable::MaybeRelocatable;
+use crate::types::relocatable::{MaybeRelocatable, Relocatable};
 use crate::vm::context::run_context::RunContext;
 use crate::vm::decoding::decoder::decode_instruction;
 use crate::vm::errors::runner_errors::RunnerError;
@@ -25,7 +25,7 @@ pub struct Operands {
     op1: MaybeRelocatable,
 }
 #[derive(PartialEq, Debug)]
-struct OperandsAddresses(MaybeRelocatable, MaybeRelocatable, MaybeRelocatable);
+struct OperandsAddresses(Relocatable, Relocatable, Relocatable);
 
 #[derive(Clone, Debug)]
 
@@ -54,7 +54,7 @@ pub struct VirtualMachine {
     pub memory: Memory,
     //auto_deduction: HashMap<BigInt, Vec<(Rule, ())>>,
     //Some(accessed_addresses) == proof mode enabled
-    accessed_addresses: Option<Vec<MaybeRelocatable>>,
+    accessed_addresses: Option<Vec<Relocatable>>,
     //None if trace is not enabled, Some otherwise
     pub trace: Option<Vec<TraceEntry>>,
     current_step: usize,
@@ -437,13 +437,10 @@ impl VirtualMachine {
         if let Some(ref mut accessed_addresses) = self.accessed_addresses {
             let op_addrs =
                 operands_mem_addresses.ok_or(VirtualMachineError::InvalidInstructionEncoding)?;
-            let addresses = &[
-                op_addrs.0,
-                op_addrs.1,
-                op_addrs.2,
-                self.run_context.pc.clone(),
-            ];
-            accessed_addresses.extend_from_slice(addresses);
+            if let MaybeRelocatable::RelocatableValue(ref pc) = self.run_context.pc {
+                let addresses = &[op_addrs.0, op_addrs.1, op_addrs.2, pc.clone()];
+                accessed_addresses.extend_from_slice(addresses);
+            }
         }
 
         self.update_registers(instruction, operands)?;
@@ -597,7 +594,18 @@ impl VirtualMachine {
         match (dst, op0, op1) {
             (Some(unwrapped_dst), Some(unwrapped_op0), Some(unwrapped_op1)) => {
                 let accessed_addresses = if self.accessed_addresses.is_some() {
-                    Some(OperandsAddresses(dst_addr, op0_addr, op1_addr))
+                    if let (
+                        MaybeRelocatable::RelocatableValue(dst_addr),
+                        MaybeRelocatable::RelocatableValue(op0_addr),
+                        MaybeRelocatable::RelocatableValue(op1_addr),
+                    ) = (dst_addr, op0_addr, op1_addr)
+                    {
+                        Some(OperandsAddresses(dst_addr, op0_addr, op1_addr))
+                    } else {
+                        // XXX: this won't be needed after migration to
+                        // relocatable for all addresses.
+                        None
+                    }
                 } else {
                     None
                 };
@@ -2114,9 +2122,18 @@ mod tests {
         };
 
         let expected_addresses = Some(OperandsAddresses(
-            dst_addr.clone(),
-            op0_addr.clone(),
-            op1_addr.clone(),
+            Relocatable {
+                segment_index: 0,
+                offset: 0,
+            },
+            Relocatable {
+                segment_index: 0,
+                offset: 1,
+            },
+            Relocatable {
+                segment_index: 0,
+                offset: 2,
+            },
         ));
         let (operands, addresses) = vm.compute_operands(&inst).unwrap();
         assert!(operands == expected_operands);
@@ -2160,9 +2177,18 @@ mod tests {
         };
 
         let expected_addresses = Some(OperandsAddresses(
-            dst_addr.clone(),
-            op0_addr.clone(),
-            op1_addr.clone(),
+            Relocatable {
+                segment_index: 0,
+                offset: 0,
+            },
+            Relocatable {
+                segment_index: 0,
+                offset: 1,
+            },
+            Relocatable {
+                segment_index: 0,
+                offset: 2,
+            },
         ));
         let (operands, addresses) = vm.compute_operands(&inst).unwrap();
         assert!(operands == expected_operands);
@@ -2209,9 +2235,18 @@ mod tests {
         };
 
         let expected_addresses = Some(OperandsAddresses(
-            MaybeRelocatable::from((0, 1)),
-            MaybeRelocatable::from((0, 1)),
-            MaybeRelocatable::from((0, 1)),
+            Relocatable {
+                segment_index: 0,
+                offset: 1,
+            },
+            Relocatable {
+                segment_index: 0,
+                offset: 1,
+            },
+            Relocatable {
+                segment_index: 0,
+                offset: 1,
+            },
         ));
 
         let (operands, addresses) = vm.compute_operands(&instruction).unwrap();
@@ -2416,7 +2451,7 @@ mod tests {
             hints: HashMap::<MaybeRelocatable, Vec<HintData>>::new(),
             references: HashMap::<usize, HintReference>::new(),
             memory: Memory::new(),
-            accessed_addresses: Some(Vec::<MaybeRelocatable>::new()),
+            accessed_addresses: Some(Vec::<Relocatable>::new()),
             trace: Some(Vec::<TraceEntry>::new()),
             current_step: 1,
             skip_instruction_execution: false,
@@ -2497,9 +2532,18 @@ mod tests {
         assert_eq!(vm.run_context.ap, MaybeRelocatable::from((1, 2)));
         assert_eq!(vm.run_context.fp, MaybeRelocatable::from((2, 0)));
         let accessed_addresses = vm.accessed_addresses.as_ref().unwrap();
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((1, 0))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((1, 1))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((0, 0))));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 1,
+            offset: 0
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 1,
+            offset: 1
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 0,
+            offset: 0
+        }));
     }
 
     #[test]
@@ -2675,23 +2719,65 @@ mod tests {
             .accessed_addresses
             .unwrap()
             .into_iter()
-            .collect::<HashSet<MaybeRelocatable>>();
+            .collect::<HashSet<Relocatable>>();
         assert_eq!(accessed_addresses.len(), 14);
         //Check each element individually
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((0, 1))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((0, 7))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((1, 2))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((0, 4))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((0, 0))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((1, 5))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((1, 1))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((0, 3))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((1, 4))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((0, 6))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((0, 2))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((0, 5))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((1, 0))));
-        assert!(accessed_addresses.contains(&MaybeRelocatable::from((1, 3))));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 0,
+            offset: 1
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 0,
+            offset: 7
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 1,
+            offset: 2
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 0,
+            offset: 4
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 0,
+            offset: 0
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 1,
+            offset: 5
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 1,
+            offset: 1
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 0,
+            offset: 3
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 1,
+            offset: 4
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 0,
+            offset: 6
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 0,
+            offset: 2
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 0,
+            offset: 5
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 1,
+            offset: 0
+        }));
+        assert!(accessed_addresses.contains(&Relocatable {
+            segment_index: 1,
+            offset: 3
+        }));
     }
 
     #[test]
@@ -3019,9 +3105,18 @@ mod tests {
             )),
         };
         let expected_operands_mem_addresses = Some(OperandsAddresses(
-            MaybeRelocatable::from((1, 13)),
-            MaybeRelocatable::from((1, 7)),
-            MaybeRelocatable::from((3, 2)),
+            Relocatable {
+                segment_index: 1,
+                offset: 13,
+            },
+            Relocatable {
+                segment_index: 1,
+                offset: 7,
+            },
+            Relocatable {
+                segment_index: 3,
+                offset: 2,
+            },
         ));
         assert_eq!(
             Ok((expected_operands, expected_operands_mem_addresses)),
@@ -3170,9 +3265,18 @@ mod tests {
             op1: MaybeRelocatable::from(bigint!(8)),
         };
         let expected_operands_mem_addresses = Some(OperandsAddresses(
-            MaybeRelocatable::from((1, 9)),
-            MaybeRelocatable::from((1, 3)),
-            MaybeRelocatable::from((2, 2)),
+            Relocatable {
+                segment_index: 1,
+                offset: 9,
+            },
+            Relocatable {
+                segment_index: 1,
+                offset: 3,
+            },
+            Relocatable {
+                segment_index: 2,
+                offset: 2,
+            },
         ));
         assert_eq!(
             Ok((expected_operands, expected_operands_mem_addresses)),
