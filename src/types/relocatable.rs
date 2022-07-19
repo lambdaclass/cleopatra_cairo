@@ -18,7 +18,37 @@ pub enum MaybeRelocatable {
     Int(BigInt),
 }
 
+const SEGMENT_MASK: u64 = 0x7f80000000000000;
+const OFFSET_BITS: u64 = 47;
+const OFFSET_MASK: u64 = 0x007fffffffffffff;
+
+impl From<u64> for Relocatable {
+    fn from(packed: u64) -> Self {
+        Relocatable {
+            segment_index: ((packed & SEGMENT_MASK) >> OFFSET_BITS) as usize,
+            offset: (packed & OFFSET_MASK) as usize,
+        }
+    }
+}
+
+impl Into<u64> for Relocatable {
+    #[inline]
+    fn into(self: Self) -> u64 {
+        (((self.segment_index as u64) << OFFSET_BITS) & SEGMENT_MASK)
+            | ((self.offset as u64) & OFFSET_MASK)
+    }
+}
+
+impl Into<u64> for &Relocatable {
+    #[inline]
+    fn into(self: Self) -> u64 {
+        (((self.segment_index as u64) << OFFSET_BITS) & SEGMENT_MASK)
+            | ((self.offset as u64) & OFFSET_MASK)
+    }
+}
+
 impl From<(usize, usize)> for Relocatable {
+    #[inline]
     fn from(index_offset: (usize, usize)) -> Self {
         Relocatable {
             segment_index: index_offset.0,
