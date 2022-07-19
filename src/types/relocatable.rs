@@ -36,8 +36,12 @@ impl Relocatable {
 
 impl Debug for Relocatable {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Relocatable {{ segment_index: {:}, offset: {:} }}",
-            self.segment_index(), self.offset())
+        write!(
+            f,
+            "Relocatable {{ segment_index: {:}, offset: {:} }}",
+            self.segment_index(),
+            self.offset()
+        )
     }
 }
 

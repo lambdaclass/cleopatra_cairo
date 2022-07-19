@@ -206,10 +206,7 @@ impl CairoRunner {
             None => return Err(RunnerError::NoFP),
         }
         match &self.program_base {
-            Some(program_base) => {
-                self.vm._program_base =
-                    Some(MaybeRelocatable::RelocatableValue(program_base.clone()))
-            }
+            Some(program_base) => self.vm._program_base = Some(program_base.clone()),
             None => return Err(RunnerError::NoProgBase),
         }
         for (_, builtin) in self.vm.builtin_runners.iter() {
@@ -886,7 +883,7 @@ mod tests {
         );
         assert_eq!(
             cairo_runner.vm._program_base,
-            Some(MaybeRelocatable::from((0, 0)))
+            Some(Relocatable::from((0, 0)))
         );
     }
 

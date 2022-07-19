@@ -2,8 +2,8 @@ use crate::bigint;
 use crate::serde::deserialize_program::ApTracking;
 use crate::types::exec_scope::ExecutionScopes;
 use crate::types::instruction::{ApUpdate, FpUpdate, Instruction, Opcode, PcUpdate, Res};
-use crate::types::relocatable::MaybeRelocatable;
 use crate::types::relocatable::MaybeRelocatable::RelocatableValue;
+use crate::types::relocatable::{MaybeRelocatable, Relocatable};
 use crate::vm::context::run_context::RunContext;
 use crate::vm::decoding::decoder::decode_instruction;
 use crate::vm::errors::runner_errors::RunnerError;
@@ -44,7 +44,7 @@ pub struct VirtualMachine {
     pub prime: BigInt,
     pub builtin_runners: Vec<(String, Box<dyn BuiltinRunner>)>,
     pub segments: MemorySegmentManager,
-    pub _program_base: Option<MaybeRelocatable>,
+    pub _program_base: Option<Relocatable>,
     pub memory: Memory,
     pub exec_scopes: ExecutionScopes,
     //enter_scope:

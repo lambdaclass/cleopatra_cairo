@@ -409,7 +409,8 @@ pub fn dict_update(
     };
 
     //Get tracker for dictionary
-    let tracker = if let Some(tracker) = vm.dict_manager.trackers.get_mut(&dict_ptr.segment_index()) {
+    let tracker = if let Some(tracker) = vm.dict_manager.trackers.get_mut(&dict_ptr.segment_index())
+    {
         tracker
     } else {
         return Err(VirtualMachineError::NoDictTracker(dict_ptr.segment_index()));
