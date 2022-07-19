@@ -35,10 +35,7 @@ macro_rules! bigint_str {
 #[macro_export]
 macro_rules! relocatable {
     ($val1 : expr, $val2 : expr) => {
-        Relocatable {
-            segment_index: ($val1),
-            offset: ($val2),
-        }
+        Relocatable::from(($val1, $val2))
     };
 }
 
@@ -54,7 +51,7 @@ pub fn is_subsequence<T: PartialEq>(subsequence: &[T], mut sequence: &[T]) -> bo
 }
 
 pub fn from_relocatable_to_indexes(relocatable: Relocatable) -> (usize, usize) {
-    (relocatable.segment_index, relocatable.offset)
+    (relocatable.segment_index(), relocatable.offset())
 }
 
 ///Converts val to an integer in the range (-prime/2, prime/2) which is

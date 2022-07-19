@@ -14,10 +14,7 @@ impl MemorySegmentManager {
         let segment_index = self.num_segments;
         self.num_segments += 1;
         memory.data.push(Vec::new());
-        Relocatable {
-            segment_index,
-            offset: 0,
-        }
+        Relocatable::from((segment_index, 0))
     }
     ///Writes data into the memory at address ptr and returns the first address after the data.
     pub fn load_data(
@@ -98,13 +95,7 @@ mod tests {
         let mut memory = Memory::new();
         let mut _base = segments.add(&mut memory, None);
         _base = segments.add(&mut memory, None);
-        assert_eq!(
-            _base,
-            Relocatable {
-                segment_index: 1,
-                offset: 0
-            }
-        );
+        assert_eq!(_base, Relocatable::from((1, 0)),);
         assert_eq!(segments.num_segments, 2);
     }
 

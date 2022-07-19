@@ -57,7 +57,7 @@ pub fn pow(
     };
 
     let prev_locs_exp_addr =
-        MaybeRelocatable::from((prev_locs_addr.segment_index, prev_locs_addr.offset + 4));
+        MaybeRelocatable::from((prev_locs_addr.segment_index(), prev_locs_addr.offset() + 4));
 
     match vm.memory.get(&prev_locs_exp_addr) {
         Ok(Some(MaybeRelocatable::Int(prev_locs_exp))) => {

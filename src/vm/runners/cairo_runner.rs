@@ -116,10 +116,8 @@ impl CairoRunner {
         stack: Vec<MaybeRelocatable>,
     ) -> Result<(), RunnerError> {
         if let Some(prog_base) = self.program_base.clone() {
-            let initial_pc = Relocatable {
-                segment_index: prog_base.segment_index,
-                offset: prog_base.offset + entrypoint,
-            };
+            let initial_pc =
+                Relocatable::from((prog_base.segment_index(), prog_base.offset() + entrypoint));
             self.initial_pc = Some(initial_pc);
             match self.vm.segments.load_data(
                 &mut self.vm.memory,
@@ -159,10 +157,10 @@ impl CairoRunner {
             MaybeRelocatable::RelocatableValue(end.clone()),
         ]);
         if let Some(base) = &self.execution_base {
-            self.initial_fp = Some(Relocatable {
-                segment_index: base.segment_index,
-                offset: base.offset + stack.len(),
-            });
+            self.initial_fp = Some(Relocatable::from((
+                base.segment_index(),
+                base.offset() + stack.len(),
+            )));
             self.initial_ap = self.initial_fp.clone();
         } else {
             return Err(RunnerError::NoExecBaseForEntrypoint);
@@ -396,7 +394,8 @@ impl CairoRunner {
             }
 
             // See previous comment, the unwrap below is safe.
-            for i in 0..self.vm.segments.segment_used_sizes.as_ref().unwrap()[base.segment_index] {
+            for i in 0..self.vm.segments.segment_used_sizes.as_ref().unwrap()[base.segment_index()]
+            {
                 let value =
                     match self.vm.memory.get(
                         &MaybeRelocatable::RelocatableValue(base.clone()).add_usize_mod(i, None),
@@ -479,26 +478,11 @@ mod tests {
             },
         };
         let mut cairo_runner = CairoRunner::new(&program, false);
-        let program_base = Some(Relocatable {
-            segment_index: 5,
-            offset: 9,
-        });
+        let program_base = Some(relocatable!(5, 9));
         cairo_runner.vm.segments.num_segments = 6;
         cairo_runner.initialize_segments(program_base);
-        assert_eq!(
-            cairo_runner.program_base,
-            Some(Relocatable {
-                segment_index: 5,
-                offset: 9,
-            })
-        );
-        assert_eq!(
-            cairo_runner.execution_base,
-            Some(Relocatable {
-                segment_index: 6,
-                offset: 0,
-            })
-        );
+        assert_eq!(cairo_runner.program_base, Some(relocatable!(5, 9)),);
+        assert_eq!(cairo_runner.execution_base, Some(relocatable!(6, 0)),);
         assert_eq!(cairo_runner.vm.builtin_runners[0].0, String::from("output"));
         assert_eq!(
             cairo_runner.vm.builtin_runners[0].1.base(),
@@ -523,20 +507,8 @@ mod tests {
         };
         let mut cairo_runner = CairoRunner::new(&program, false);
         cairo_runner.initialize_segments(None);
-        assert_eq!(
-            cairo_runner.program_base,
-            Some(Relocatable {
-                segment_index: 0,
-                offset: 0
-            })
-        );
-        assert_eq!(
-            cairo_runner.execution_base,
-            Some(Relocatable {
-                segment_index: 1,
-                offset: 0
-            })
-        );
+        assert_eq!(cairo_runner.program_base, Some(relocatable!(0, 0)),);
+        assert_eq!(cairo_runner.execution_base, Some(relocatable!(1, 0)),);
         assert_eq!(cairo_runner.vm.builtin_runners[0].0, String::from("output"));
         assert_eq!(
             cairo_runner.vm.builtin_runners[0].1.base(),
@@ -564,13 +536,7 @@ mod tests {
         cairo_runner.execution_base = Some(relocatable!(2, 0));
         let stack = Vec::new();
         cairo_runner.initialize_state(1, stack).unwrap();
-        assert_eq!(
-            cairo_runner.initial_pc,
-            Some(Relocatable {
-                segment_index: 1,
-                offset: 1
-            })
-        );
+        assert_eq!(cairo_runner.initial_pc, Some(relocatable!(1, 1)),);
     }
 
     #[test]
@@ -596,10 +562,7 @@ mod tests {
                 .segments
                 .add(&mut cairo_runner.vm.memory, None);
         }
-        cairo_runner.program_base = Some(Relocatable {
-            segment_index: 1,
-            offset: 0,
-        });
+        cairo_runner.program_base = Some(Relocatable::from((1, 0)));
         cairo_runner.execution_base = Some(relocatable!(2, 0));
         let stack = Vec::new();
         cairo_runner.initialize_state(1, stack).unwrap();
@@ -691,10 +654,7 @@ mod tests {
                 .segments
                 .add(&mut cairo_runner.vm.memory, None);
         }
-        cairo_runner.execution_base = Some(Relocatable {
-            segment_index: 2,
-            offset: 0,
-        });
+        cairo_runner.execution_base = Some(relocatable!(2, 0));
         let stack = vec![
             MaybeRelocatable::from(bigint!(4)),
             MaybeRelocatable::from(bigint!(6)),

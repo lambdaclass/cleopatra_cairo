@@ -328,7 +328,7 @@ impl VirtualMachine {
         if let MaybeRelocatable::RelocatableValue(addr) = address {
             for (_, builtin) in self.builtin_runners.iter_mut() {
                 if let Some(base) = builtin.base() {
-                    if base.segment_index == addr.segment_index {
+                    if base.segment_index() == addr.segment_index() {
                         match builtin.deduce_memory_cell(address, &self.memory) {
                             Ok(maybe_reloc) => return Ok(maybe_reloc),
                             Err(error) => return Err(VirtualMachineError::RunnerError(error)),
@@ -648,7 +648,7 @@ impl VirtualMachine {
                 for (name, builtin) in self.builtin_runners.iter_mut() {
                     match builtin.base() {
                         Some(builtin_base) => {
-                            if builtin_base.segment_index == i {
+                            if builtin_base.segment_index() == i {
                                 match builtin.deduce_memory_cell(
                                     &MaybeRelocatable::from((i, j)),
                                     &self.memory,

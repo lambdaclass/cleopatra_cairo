@@ -8,8 +8,8 @@ use num_traits::{FromPrimitive, Signed, ToPrimitive};
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug)]
 pub struct Relocatable {
-    pub segment_index: usize,
-    pub offset: usize,
+    segment_index: usize,
+    offset: usize,
 }
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug)]
@@ -23,6 +23,18 @@ const OFFSET_MASK: u64 = (1u64 << OFFSET_BITS) - 1;
 // i64::MAX == 63 lower bits in 1
 const SEGMENT_MASK: u64 = i64::MAX as u64 ^ OFFSET_MASK;
 
+impl Relocatable {
+    #[inline]
+    pub fn segment_index(&self) -> usize {
+        self.segment_index
+    }
+
+    #[inline]
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+}
+
 impl From<u64> for Relocatable {
     #[inline]
     fn from(packed: u64) -> Self {
@@ -33,19 +45,19 @@ impl From<u64> for Relocatable {
     }
 }
 
-impl Into<u64> for Relocatable {
+impl From<Relocatable> for u64 {
     #[inline]
-    fn into(self: Self) -> u64 {
-        (((self.segment_index as u64) << OFFSET_BITS) & SEGMENT_MASK)
-            | ((self.offset as u64) & OFFSET_MASK)
+    fn from(rel: Relocatable) -> u64 {
+        (((rel.segment_index as u64) << OFFSET_BITS) & SEGMENT_MASK)
+            | ((rel.offset as u64) & OFFSET_MASK)
     }
 }
 
-impl Into<u64> for &Relocatable {
+impl From<&Relocatable> for u64 {
     #[inline]
-    fn into(self: Self) -> u64 {
-        (((self.segment_index as u64) << OFFSET_BITS) & SEGMENT_MASK)
-            | ((self.offset as u64) & OFFSET_MASK)
+    fn from(rel: &Relocatable) -> u64 {
+        (((rel.segment_index as u64) << OFFSET_BITS) & SEGMENT_MASK)
+            | ((rel.offset as u64) & OFFSET_MASK)
     }
 }
 

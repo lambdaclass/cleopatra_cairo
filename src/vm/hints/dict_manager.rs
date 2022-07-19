@@ -77,13 +77,13 @@ impl DictManager {
         initial_dict: HashMap<BigInt, BigInt>,
     ) -> Result<MaybeRelocatable, VirtualMachineError> {
         let base = segments.add(memory, None);
-        if self.trackers.contains_key(&base.segment_index) {
+        if self.trackers.contains_key(&base.segment_index()) {
             return Err(VirtualMachineError::CantCreateDictionaryOnTakenSegment(
-                base.segment_index,
+                base.segment_index(),
             ));
         }
         self.trackers.insert(
-            base.segment_index,
+            base.segment_index(),
             DictTracker::new_with_initial(&base, initial_dict),
         );
         Ok(MaybeRelocatable::RelocatableValue(base))
@@ -98,13 +98,13 @@ impl DictManager {
         initial_dict: Option<HashMap<BigInt, BigInt>>,
     ) -> Result<MaybeRelocatable, VirtualMachineError> {
         let base = segments.add(memory, None);
-        if self.trackers.contains_key(&base.segment_index) {
+        if self.trackers.contains_key(&base.segment_index()) {
             return Err(VirtualMachineError::CantCreateDictionaryOnTakenSegment(
-                base.segment_index,
+                base.segment_index(),
             ));
         }
         self.trackers.insert(
-            base.segment_index,
+            base.segment_index(),
             DictTracker::new_default_dict(&base, default_value, initial_dict),
         );
         Ok(MaybeRelocatable::RelocatableValue(base))

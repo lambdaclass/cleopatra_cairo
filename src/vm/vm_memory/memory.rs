@@ -92,7 +92,7 @@ impl Memory {
         if let &MaybeRelocatable::RelocatableValue(ref rel_addr) = address {
             if !self.validated_addresses.contains(address) {
                 for (index, validation_rule) in self.validation_rules.iter() {
-                    if &rel_addr.segment_index == index {
+                    if &rel_addr.segment_index() == index {
                         self.validated_addresses
                             .insert(validation_rule.0(self, address)?);
                     }

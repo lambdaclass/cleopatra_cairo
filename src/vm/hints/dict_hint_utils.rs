@@ -4,7 +4,10 @@ use num_bigint::BigInt;
 
 use crate::{
     serde::deserialize_program::ApTracking,
-    types::{exec_scope::PyValueType, relocatable::MaybeRelocatable},
+    types::{
+        exec_scope::PyValueType,
+        relocatable::{MaybeRelocatable, Relocatable},
+    },
     vm::{errors::vm_errors::VirtualMachineError, vm_core::VirtualMachine},
 };
 
@@ -176,13 +179,17 @@ pub fn dict_read(
             Ok(_),
             Ok(Some(MaybeRelocatable::RelocatableValue(dict_ptr))),
         ) => {
-            let tracker =
-                if let Some(tracker) = vm.dict_manager.trackers.get_mut(&dict_ptr.segment_index) {
-                    tracker
-                } else {
-                    return Err(VirtualMachineError::NoDictTracker(dict_ptr.segment_index));
-                };
-            tracker.current_ptr.offset += DICT_ACCESS_SIZE;
+            let tracker = if let Some(tracker) =
+                vm.dict_manager.trackers.get_mut(&dict_ptr.segment_index())
+            {
+                tracker
+            } else {
+                return Err(VirtualMachineError::NoDictTracker(dict_ptr.segment_index()));
+            };
+            tracker.current_ptr = Relocatable::from((
+                tracker.current_ptr.segment_index(),
+                tracker.current_ptr.offset() + DICT_ACCESS_SIZE,
+            ));
             let value = if let Some(value) = tracker.data.get(key) {
                 value
             } else {
@@ -273,10 +280,11 @@ pub fn dict_write(
     let value_copy = new_value.clone();
 
     //Get tracker for dictionary
-    let tracker = if let Some(tracker) = vm.dict_manager.trackers.get_mut(&dict_ptr.segment_index) {
+    let tracker = if let Some(tracker) = vm.dict_manager.trackers.get_mut(&dict_ptr.segment_index())
+    {
         tracker
     } else {
-        return Err(VirtualMachineError::NoDictTracker(dict_ptr.segment_index));
+        return Err(VirtualMachineError::NoDictTracker(dict_ptr.segment_index()));
     };
 
     //dict_ptr is a pointer to a struct, with the ordered fields (key, prev_value, new_value),
@@ -284,7 +292,10 @@ pub fn dict_write(
     let dict_ptr_prev_value =
         MaybeRelocatable::RelocatableValue(dict_ptr.clone()).add_usize_mod(1, None);
     //Tracker set to track next dictionary entry
-    tracker.current_ptr.offset += DICT_ACCESS_SIZE;
+    tracker.current_ptr = Relocatable::from((
+        tracker.current_ptr.segment_index(),
+        tracker.current_ptr.offset() + DICT_ACCESS_SIZE,
+    ));
     //Get previous value
     let prev_value = if let Some(value) = tracker.data.get(key) {
         value
@@ -398,10 +409,10 @@ pub fn dict_update(
     };
 
     //Get tracker for dictionary
-    let tracker = if let Some(tracker) = vm.dict_manager.trackers.get_mut(&dict_ptr.segment_index) {
+    let tracker = if let Some(tracker) = vm.dict_manager.trackers.get_mut(&dict_ptr.segment_index()) {
         tracker
     } else {
-        return Err(VirtualMachineError::NoDictTracker(dict_ptr.segment_index));
+        return Err(VirtualMachineError::NoDictTracker(dict_ptr.segment_index()));
     };
     //Check that prev_value is equal to the current value at the given key
     let current_value = tracker.data.get(key);
@@ -414,7 +425,10 @@ pub fn dict_update(
     }
     //Update Value
     tracker.data.insert(key, new_value);
-    tracker.current_ptr.offset += DICT_ACCESS_SIZE;
+    tracker.current_ptr = Relocatable::from((
+        tracker.current_ptr.segment_index(),
+        tracker.current_ptr.offset() + DICT_ACCESS_SIZE,
+    ));
     Ok(())
 }
 

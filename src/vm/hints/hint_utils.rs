@@ -30,8 +30,8 @@ fn apply_ap_tracking_correction(
     let ap_diff = hint_ap_tracking.offset - ref_ap_tracking.offset;
 
     Ok(MaybeRelocatable::from((
-        ap.segment_index,
-        ap.offset - ap_diff,
+        ap.segment_index(),
+        ap.offset() - ap_diff,
     )))
 }
 
@@ -67,27 +67,27 @@ pub fn compute_addr_from_reference(
 
     if let MaybeRelocatable::RelocatableValue(relocatable) = base_addr {
         if hint_reference.offset1.is_negative()
-            && relocatable.offset < hint_reference.offset1.abs() as usize
+            && relocatable.offset() < hint_reference.offset1.abs() as usize
         {
             return Ok(None);
         }
         if !hint_reference.inner_dereference {
             return Ok(Some(MaybeRelocatable::from((
-                relocatable.segment_index,
-                (relocatable.offset as i32 + hint_reference.offset1 + hint_reference.offset2)
+                relocatable.segment_index(),
+                (relocatable.offset() as i32 + hint_reference.offset1 + hint_reference.offset2)
                     as usize,
             ))));
         } else {
             let addr = MaybeRelocatable::from((
-                relocatable.segment_index,
-                (relocatable.offset as i32 + hint_reference.offset1) as usize,
+                relocatable.segment_index(),
+                (relocatable.offset() as i32 + hint_reference.offset1) as usize,
             ));
 
             match vm.memory.get(&addr) {
                 Ok(Some(&MaybeRelocatable::RelocatableValue(ref dereferenced_addr))) => {
                     return Ok(Some(MaybeRelocatable::from((
-                        dereferenced_addr.segment_index,
-                        (dereferenced_addr.offset as i32 + hint_reference.offset2) as usize,
+                        dereferenced_addr.segment_index(),
+                        (dereferenced_addr.offset() as i32 + hint_reference.offset2) as usize,
                     ))))
                 }
 
@@ -483,10 +483,10 @@ pub fn assert_not_equal(
                 Ok(())
             }
             (MaybeRelocatable::RelocatableValue(a), MaybeRelocatable::RelocatableValue(b)) => {
-                if a.segment_index != b.segment_index {
+                if a.segment_index() != b.segment_index() {
                     return Err(VirtualMachineError::DiffIndexComp(a.clone(), b.clone()));
                 };
-                if a.offset == b.offset {
+                if a.offset() == b.offset() {
                     return Err(VirtualMachineError::AssertNotEqualFail(
                         maybe_rel_a.clone(),
                         maybe_rel_b.clone(),

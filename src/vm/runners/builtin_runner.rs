@@ -128,7 +128,7 @@ impl BuiltinRunner for RangeCheckBuiltinRunner {
                 }
             },
         ));
-        memory.add_validation_rule(self.base.as_ref().unwrap().segment_index, rule);
+        memory.add_validation_rule(self.base.as_ref().unwrap().segment_index(), rule);
     }
 
     fn deduce_memory_cell(
@@ -237,7 +237,7 @@ impl BuiltinRunner for HashBuiltinRunner {
         memory: &Memory,
     ) -> Result<Option<MaybeRelocatable>, RunnerError> {
         if let &MaybeRelocatable::RelocatableValue(ref relocatable) = address {
-            if relocatable.offset % self.cells_per_instance != 2
+            if relocatable.offset() % self.cells_per_instance != 2
                 || self.verified_addresses.contains(address)
             {
                 return Ok(None);
@@ -246,14 +246,14 @@ impl BuiltinRunner for HashBuiltinRunner {
                 Ok(Some(MaybeRelocatable::Int(num_a))),
                 Ok(Some(MaybeRelocatable::Int(num_b))),
             ) = (
-                memory.get(&MaybeRelocatable::RelocatableValue(Relocatable {
-                    segment_index: relocatable.segment_index,
-                    offset: relocatable.offset - 1,
-                })),
-                memory.get(&MaybeRelocatable::RelocatableValue(Relocatable {
-                    segment_index: relocatable.segment_index,
-                    offset: relocatable.offset - 2,
-                })),
+                memory.get(&MaybeRelocatable::from((
+                    relocatable.segment_index(),
+                    relocatable.offset() - 1,
+                ))),
+                memory.get(&MaybeRelocatable::from((
+                    relocatable.segment_index(),
+                    relocatable.offset() - 2,
+                ))),
             ) {
                 self.verified_addresses.push(address.clone());
 
@@ -331,12 +331,12 @@ impl BuiltinRunner for BitwiseBuiltinRunner {
         memory: &Memory,
     ) -> Result<Option<MaybeRelocatable>, RunnerError> {
         if let &MaybeRelocatable::RelocatableValue(ref relocatable) = address {
-            let index = relocatable.offset % self.cells_per_instance;
+            let index = relocatable.offset() % self.cells_per_instance;
             if index == 0 || index == 1 {
                 return Ok(None);
             }
             let x_addr =
-                MaybeRelocatable::from((relocatable.segment_index, relocatable.offset - index));
+                MaybeRelocatable::from((relocatable.segment_index(), relocatable.offset() - index));
             let y_addr = x_addr.add_usize_mod(1, None);
             if let (
                 Ok(Some(MaybeRelocatable::Int(num_x))),
@@ -478,13 +478,13 @@ impl BuiltinRunner for EcOpBuiltinRunner {
                 b"3618502788666131213697322783095070105623107215331596699973092056135872020481"
             );
 
-            let index = relocatable.offset % self.cells_per_instance;
+            let index = relocatable.offset() % self.cells_per_instance;
             //Index should be an output cell
             if index != OUTPUT_INDICES.0 && index != OUTPUT_INDICES.1 {
                 return Ok(None);
             }
             let instance =
-                MaybeRelocatable::from((relocatable.segment_index, relocatable.offset - index));
+                MaybeRelocatable::from((relocatable.segment_index(), relocatable.offset() - index));
             //All input cells should be filled, and be integer values
             //If an input cell is not filled, return None
             let mut input_cells = Vec::<&BigInt>::with_capacity(self.n_input_cells);
@@ -570,13 +570,7 @@ mod tests {
         let mut segments = MemorySegmentManager::new();
         let mut memory = Memory::new();
         builtin.initialize_segments(&mut segments, &mut memory);
-        assert_eq!(
-            builtin.base,
-            Some(Relocatable {
-                segment_index: 0,
-                offset: 0
-            })
-        );
+        assert_eq!(builtin.base, Some(relocatable!(0, 0)),);
     }
 
     #[test]
@@ -615,10 +609,7 @@ mod tests {
     #[test]
     fn get_initial_stack_for_output_included_with_base() {
         let mut builtin = OutputBuiltinRunner::new(true);
-        builtin.base = Some(Relocatable {
-            segment_index: 1,
-            offset: 0,
-        });
+        builtin.base = Some(relocatable!(1, 0));
         let initial_stack = builtin.initial_stack().unwrap();
         assert_eq!(
             initial_stack[0].clone(),
