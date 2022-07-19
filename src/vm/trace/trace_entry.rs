@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq)]
 pub struct TraceEntry {
-    pub pc: Relocatable,
-    pub ap: Relocatable,
-    pub fp: Relocatable,
+    pub pc: u64,
+    pub ap: u64,
+    pub fp: u64,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]

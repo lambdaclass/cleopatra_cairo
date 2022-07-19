@@ -342,9 +342,9 @@ impl CairoRunner {
         let mut relocated_trace = Vec::<RelocatedTraceEntry>::with_capacity(trace.len());
         for entry in trace {
             relocated_trace.push(RelocatedTraceEntry {
-                pc: relocate_trace_register(&entry.pc, relocation_table)?,
-                ap: relocate_trace_register(&entry.ap, relocation_table)?,
-                fp: relocate_trace_register(&entry.fp, relocation_table)?,
+                pc: relocate_trace_register(&Relocatable::from(entry.pc), relocation_table)?,
+                ap: relocate_trace_register(&Relocatable::from(entry.ap), relocation_table)?,
+                fp: relocate_trace_register(&Relocatable::from(entry.fp), relocation_table)?,
             })
         }
         self.relocated_trace = Some(relocated_trace);
@@ -1701,86 +1701,41 @@ mod tests {
         assert_eq!(
             trace[0],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 3
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 2
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 2
-                },
+                pc: Relocatable::from((0, 3)).into(),
+                ap: Relocatable::from((1, 2)).into(),
+                fp: Relocatable::from((1, 2)).into(),
             }
         );
         assert_eq!(
             trace[1],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 5
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 3
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 2
-                },
+                pc: Relocatable::from((0, 5)).into(),
+                ap: Relocatable::from((1, 3)).into(),
+                fp: Relocatable::from((1, 2)).into(),
             }
         );
         assert_eq!(
             trace[2],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 0
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 5
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 5
-                },
+                pc: Relocatable::from((0, 0)).into(),
+                ap: Relocatable::from((1, 5)).into(),
+                fp: Relocatable::from((1, 5)).into(),
             }
         );
         assert_eq!(
             trace[3],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 2
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 6
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 5
-                },
+                pc: Relocatable::from((0, 2)).into(),
+                ap: Relocatable::from((1, 6)).into(),
+                fp: Relocatable::from((1, 5)).into(),
             }
         );
         assert_eq!(
             trace[4],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 7
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 6
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 2
-                },
+                pc: Relocatable::from((0, 7)).into(),
+                ap: Relocatable::from((1, 6)).into(),
+                fp: Relocatable::from((1, 2)).into(),
             }
         );
     }
@@ -1868,171 +1823,81 @@ mod tests {
         assert_eq!(
             trace[0],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 8
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 3
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 3
-                },
+                pc: Relocatable::from((0, 8)).into(),
+                ap: Relocatable::from((1, 3)).into(),
+                fp: Relocatable::from((1, 3)).into(),
             }
         );
         assert_eq!(
             trace[1],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 9
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 4
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 3
-                },
+                pc: Relocatable::from((0, 9)).into(),
+                ap: Relocatable::from((1, 4)).into(),
+                fp: Relocatable::from((1, 3)).into(),
             }
         );
         assert_eq!(
             trace[2],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 11
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 5
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 3
-                },
+                pc: Relocatable::from((0, 11)).into(),
+                ap: Relocatable::from((1, 5)).into(),
+                fp: Relocatable::from((1, 3)).into(),
             }
         );
         assert_eq!(
             trace[3],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 0
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 7
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 7
-                },
+                pc: Relocatable::from((0, 0)).into(),
+                ap: Relocatable::from((1, 7)).into(),
+                fp: Relocatable::from((1, 7)).into(),
             }
         );
         assert_eq!(
             trace[4],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 1
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 7
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 7
-                },
+                pc: Relocatable::from((0, 1)).into(),
+                ap: Relocatable::from((1, 7)).into(),
+                fp: Relocatable::from((1, 7)).into(),
             }
         );
         assert_eq!(
             trace[5],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 3
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 8
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 7
-                },
+                pc: Relocatable::from((0, 3)).into(),
+                ap: Relocatable::from((1, 8)).into(),
+                fp: Relocatable::from((1, 7)).into(),
             }
         );
         assert_eq!(
             trace[6],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 4
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 9
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 7
-                },
+                pc: Relocatable::from((0, 4)).into(),
+                ap: Relocatable::from((1, 9)).into(),
+                fp: Relocatable::from((1, 7)).into(),
             }
         );
         assert_eq!(
             trace[7],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 5
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 9
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 7
-                },
+                pc: Relocatable::from((0, 5)).into(),
+                ap: Relocatable::from((1, 9)).into(),
+                fp: Relocatable::from((1, 7)).into(),
             }
         );
         assert_eq!(
             trace[8],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 7
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 10
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 7
-                },
+                pc: Relocatable::from((0, 7)).into(),
+                ap: Relocatable::from((1, 10)).into(),
+                fp: Relocatable::from((1, 7)).into(),
             }
         );
         assert_eq!(
             trace[9],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 13
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 10
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 3
-                },
+                pc: Relocatable::from((0, 13)).into(),
+                ap: Relocatable::from((1, 10)).into(),
+                fp: Relocatable::from((1, 3)).into(),
             }
         );
         //Check the range_check builtin segment
@@ -2162,205 +2027,97 @@ mod tests {
         assert_eq!(
             trace[0],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 4
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 3
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 3
-                },
+                pc: Relocatable::from((0, 4)).into(),
+                ap: Relocatable::from((1, 3)).into(),
+                fp: Relocatable::from((1, 3)).into(),
             }
         );
         assert_eq!(
             trace[1],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 5
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 4
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 3
-                },
+                pc: Relocatable::from((0, 5)).into(),
+                ap: Relocatable::from((1, 4)).into(),
+                fp: Relocatable::from((1, 3)).into(),
             }
         );
         assert_eq!(
             trace[2],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 7
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 5
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 3
-                },
+                pc: Relocatable::from((0, 7)).into(),
+                ap: Relocatable::from((1, 5)).into(),
+                fp: Relocatable::from((1, 3)).into(),
             }
         );
         assert_eq!(
             trace[3],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 0
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 7
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 7
-                },
+                pc: Relocatable::from((0, 0)).into(),
+                ap: Relocatable::from((1, 7)).into(),
+                fp: Relocatable::from((1, 7)).into(),
             }
         );
         assert_eq!(
             trace[4],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 1
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 7
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 7
-                },
+                pc: Relocatable::from((0, 1)).into(),
+                ap: Relocatable::from((1, 7)).into(),
+                fp: Relocatable::from((1, 7)).into(),
             }
         );
         assert_eq!(
             trace[5],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 3
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 8
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 7
-                },
+                pc: Relocatable::from((0, 3)).into(),
+                ap: Relocatable::from((1, 8)).into(),
+                fp: Relocatable::from((1, 7)).into(),
             }
         );
         assert_eq!(
             trace[6],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 9
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 8
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 3
-                },
+                pc: Relocatable::from((0, 9)).into(),
+                ap: Relocatable::from((1, 8)).into(),
+                fp: Relocatable::from((1, 3)).into(),
             }
         );
         assert_eq!(
             trace[7],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 11
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 9
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 3
-                },
+                pc: Relocatable::from((0, 11)).into(),
+                ap: Relocatable::from((1, 9)).into(),
+                fp: Relocatable::from((1, 3)).into(),
             }
         );
         assert_eq!(
             trace[8],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 0
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 11
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 11
-                },
+                pc: Relocatable::from((0, 0)).into(),
+                ap: Relocatable::from((1, 11)).into(),
+                fp: Relocatable::from((1, 11)).into(),
             }
         );
         assert_eq!(
             trace[9],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 1
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 11
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 11
-                },
+                pc: Relocatable::from((0, 1)).into(),
+                ap: Relocatable::from((1, 11)).into(),
+                fp: Relocatable::from((1, 11)).into(),
             }
         );
         assert_eq!(
             trace[10],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 3
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 12
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 11
-                },
+                pc: Relocatable::from((0, 3)).into(),
+                ap: Relocatable::from((1, 12)).into(),
+                fp: Relocatable::from((1, 11)).into(),
             }
         );
         assert_eq!(
             trace[11],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 13
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 12
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 3
-                },
+                pc: Relocatable::from((0, 13)).into(),
+                ap: Relocatable::from((1, 12)).into(),
+                fp: Relocatable::from((1, 3)).into(),
             }
         );
         //Check that the output to be printed is correct
@@ -2513,307 +2270,145 @@ mod tests {
         assert_eq!(
             trace[0],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 13
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 4
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 4
-                },
+                pc: Relocatable::from((0, 13)).into(),
+                ap: Relocatable::from((1, 4)).into(),
+                fp: Relocatable::from((1, 4)).into(),
             }
         );
         assert_eq!(
             trace[1],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 14
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 5
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 4
-                },
+                pc: Relocatable::from((0, 14)).into(),
+                ap: Relocatable::from((1, 5)).into(),
+                fp: Relocatable::from((1, 4)).into(),
             }
         );
         assert_eq!(
             trace[2],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 16
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 6
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 4
-                },
+                pc: Relocatable::from((0, 16)).into(),
+                ap: Relocatable::from((1, 6)).into(),
+                fp: Relocatable::from((1, 4)).into(),
             }
         );
         assert_eq!(
             trace[3],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 4
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 8
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 8
-                },
+                pc: Relocatable::from((0, 4)).into(),
+                ap: Relocatable::from((1, 8)).into(),
+                fp: Relocatable::from((1, 8)).into(),
             }
         );
         assert_eq!(
             trace[4],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 5
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 8
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 8
-                },
+                pc: Relocatable::from((0, 5)).into(),
+                ap: Relocatable::from((1, 8)).into(),
+                fp: Relocatable::from((1, 8)).into(),
             }
         );
         assert_eq!(
             trace[5],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 7
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 9
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 8
-                },
+                pc: Relocatable::from((0, 7)).into(),
+                ap: Relocatable::from((1, 9)).into(),
+                fp: Relocatable::from((1, 8)).into(),
             }
         );
         assert_eq!(
             trace[6],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 8
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 10
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 8
-                },
+                pc: Relocatable::from((0, 8)).into(),
+                ap: Relocatable::from((1, 10)).into(),
+                fp: Relocatable::from((1, 8)).into(),
             }
         );
         assert_eq!(
             trace[7],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 9
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 10
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 8
-                },
+                pc: Relocatable::from((0, 9)).into(),
+                ap: Relocatable::from((1, 10)).into(),
+                fp: Relocatable::from((1, 8)).into(),
             }
         );
         assert_eq!(
             trace[8],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 11
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 11
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 8
-                },
+                pc: Relocatable::from((0, 11)).into(),
+                ap: Relocatable::from((1, 11)).into(),
+                fp: Relocatable::from((1, 8)).into(),
             }
         );
         assert_eq!(
             trace[9],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 12
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 12
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 8
-                },
+                pc: Relocatable::from((0, 12)).into(),
+                ap: Relocatable::from((1, 12)).into(),
+                fp: Relocatable::from((1, 8)).into(),
             }
         );
         assert_eq!(
             trace[10],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 18
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 12
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 4
-                },
+                pc: Relocatable::from((0, 18)).into(),
+                ap: Relocatable::from((1, 12)).into(),
+                fp: Relocatable::from((1, 4)).into(),
             }
         );
         assert_eq!(
             trace[11],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 19
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 13
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 4
-                },
+                pc: Relocatable::from((0, 19)).into(),
+                ap: Relocatable::from((1, 13)).into(),
+                fp: Relocatable::from((1, 4)).into(),
             }
         );
         assert_eq!(
             trace[12],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 20
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 14
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 4
-                },
+                pc: Relocatable::from((0, 20)).into(),
+                ap: Relocatable::from((1, 14)).into(),
+                fp: Relocatable::from((1, 4)).into(),
             }
         );
         assert_eq!(
             trace[13],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 0
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 16
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 16
-                },
+                pc: Relocatable::from((0, 0)).into(),
+                ap: Relocatable::from((1, 16)).into(),
+                fp: Relocatable::from((1, 16)).into(),
             }
         );
         assert_eq!(
             trace[14],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 1
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 16
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 16
-                },
+                pc: Relocatable::from((0, 1)).into(),
+                ap: Relocatable::from((1, 16)).into(),
+                fp: Relocatable::from((1, 16)).into(),
             }
         );
         assert_eq!(
             trace[15],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 3
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 17
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 16
-                },
+                pc: Relocatable::from((0, 3)).into(),
+                ap: Relocatable::from((1, 17)).into(),
+                fp: Relocatable::from((1, 16)).into(),
             }
         );
         assert_eq!(
             trace[16],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 22
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 17
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 4
-                },
+                pc: Relocatable::from((0, 22)).into(),
+                ap: Relocatable::from((1, 17)).into(),
+                fp: Relocatable::from((1, 4)).into(),
             }
         );
         assert_eq!(
             trace[17],
             TraceEntry {
-                pc: Relocatable {
-                    segment_index: 0,
-                    offset: 23
-                },
-                ap: Relocatable {
-                    segment_index: 1,
-                    offset: 18
-                },
-                fp: Relocatable {
-                    segment_index: 1,
-                    offset: 4
-                },
+                pc: Relocatable::from((0, 23)).into(),
+                ap: Relocatable::from((1, 18)).into(),
+                fp: Relocatable::from((1, 4)).into(),
             }
         );
         //Check the range_check builtin segment
