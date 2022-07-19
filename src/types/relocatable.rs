@@ -5,12 +5,11 @@ use crate::{
 use num_bigint::BigInt;
 use num_integer::Integer;
 use num_traits::{FromPrimitive, Signed, ToPrimitive};
+use std::fmt;
+use std::fmt::{Debug, Formatter};
 
-#[derive(Eq, Hash, PartialEq, Clone, Debug)]
-pub struct Relocatable {
-    segment_index: usize,
-    offset: usize,
-}
+#[derive(Eq, Hash, PartialEq, Clone)]
+pub struct Relocatable(u64);
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug)]
 pub enum MaybeRelocatable {
@@ -26,48 +25,50 @@ const SEGMENT_MASK: u64 = i64::MAX as u64 ^ OFFSET_MASK;
 impl Relocatable {
     #[inline]
     pub fn segment_index(&self) -> usize {
-        self.segment_index
+        (self.0 >> OFFSET_BITS) as usize
     }
 
     #[inline]
     pub fn offset(&self) -> usize {
-        self.offset
+        (self.0 & OFFSET_MASK) as usize
+    }
+}
+
+impl Debug for Relocatable {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Relocatable {{ segment_index: {:}, offset: {:} }}",
+            self.segment_index(), self.offset())
     }
 }
 
 impl From<u64> for Relocatable {
     #[inline]
     fn from(packed: u64) -> Self {
-        Relocatable {
-            segment_index: ((packed & SEGMENT_MASK) >> OFFSET_BITS) as usize,
-            offset: (packed & OFFSET_MASK) as usize,
-        }
+        Relocatable(packed & (OFFSET_MASK | SEGMENT_MASK))
     }
 }
 
 impl From<Relocatable> for u64 {
     #[inline]
     fn from(rel: Relocatable) -> u64 {
-        (((rel.segment_index as u64) << OFFSET_BITS) & SEGMENT_MASK)
-            | ((rel.offset as u64) & OFFSET_MASK)
+        rel.0
     }
 }
 
 impl From<&Relocatable> for u64 {
     #[inline]
     fn from(rel: &Relocatable) -> u64 {
-        (((rel.segment_index as u64) << OFFSET_BITS) & SEGMENT_MASK)
-            | ((rel.offset as u64) & OFFSET_MASK)
+        rel.0
     }
 }
 
 impl From<(usize, usize)> for Relocatable {
     #[inline]
     fn from(index_offset: (usize, usize)) -> Self {
-        Relocatable {
-            segment_index: index_offset.0,
-            offset: index_offset.1,
-        }
+        Relocatable(
+            (((index_offset.0 as u64) << OFFSET_BITS) & SEGMENT_MASK)
+                | (index_offset.1 as u64 & OFFSET_MASK),
+        )
     }
 }
 
@@ -97,7 +98,7 @@ impl MaybeRelocatable {
                 Ok(MaybeRelocatable::Int((value + other).mod_floor(prime)))
             }
             MaybeRelocatable::RelocatableValue(ref rel) => {
-                let mut big_offset = rel.offset + other;
+                let mut big_offset = rel.offset() + other;
                 assert!(
                     !big_offset.is_negative(),
                     "Address offsets cant be negative"
@@ -107,10 +108,7 @@ impl MaybeRelocatable {
                     Some(usize) => usize,
                     None => return Err(VirtualMachineError::OffsetExeeded(big_offset)),
                 };
-                Ok(MaybeRelocatable::RelocatableValue(Relocatable {
-                    segment_index: rel.segment_index,
-                    offset: new_offset,
-                }))
+                Ok(MaybeRelocatable::from((rel.segment_index(), new_offset)))
             }
         }
     }
@@ -125,11 +123,8 @@ impl MaybeRelocatable {
                 MaybeRelocatable::Int(num)
             }
             MaybeRelocatable::RelocatableValue(ref rel) => {
-                let new_offset = rel.offset + other;
-                MaybeRelocatable::RelocatableValue(Relocatable {
-                    segment_index: rel.segment_index,
-                    offset: new_offset,
-                })
+                let new_offset = rel.offset() + other;
+                MaybeRelocatable::from((rel.segment_index(), new_offset))
             }
         }
     }
@@ -152,15 +147,12 @@ impl MaybeRelocatable {
             (&MaybeRelocatable::RelocatableValue(ref rel), &MaybeRelocatable::Int(ref num_ref))
             | (&MaybeRelocatable::Int(ref num_ref), &MaybeRelocatable::RelocatableValue(ref rel)) =>
             {
-                let big_offset: BigInt = (num_ref + rel.offset).mod_floor(prime);
+                let big_offset: BigInt = (num_ref + rel.offset()).mod_floor(prime);
                 let new_offset = match big_offset.to_usize() {
                     Some(usize) => usize,
                     None => return Err(VirtualMachineError::OffsetExeeded(big_offset)),
                 };
-                Ok(MaybeRelocatable::RelocatableValue(Relocatable {
-                    segment_index: rel.segment_index,
-                    offset: new_offset,
-                }))
+                Ok(MaybeRelocatable::from((rel.segment_index(), new_offset)))
             }
         }
     }
@@ -180,9 +172,9 @@ impl MaybeRelocatable {
                 MaybeRelocatable::RelocatableValue(rel_a),
                 MaybeRelocatable::RelocatableValue(rel_b),
             ) => {
-                if rel_a.segment_index == rel_b.segment_index {
+                if rel_a.segment_index() == rel_b.segment_index() {
                     return Ok(MaybeRelocatable::from(bigintusize!(
-                        rel_a.offset - rel_b.offset
+                        rel_a.offset() - rel_b.offset()
                     )));
                 }
                 Err(VirtualMachineError::DiffIndexSub)
@@ -225,11 +217,11 @@ pub fn relocate_value(
     match value {
         MaybeRelocatable::Int(num) => Ok(num),
         MaybeRelocatable::RelocatableValue(relocatable) => {
-            if relocation_table.len() <= relocatable.segment_index {
+            if relocation_table.len() <= relocatable.segment_index() {
                 return Err(MemoryError::Relocation);
             }
             match BigInt::from_usize(
-                relocation_table[relocatable.segment_index] + relocatable.offset,
+                relocation_table[relocatable.segment_index()] + relocatable.offset(),
             ) {
                 None => Err(MemoryError::Relocation),
                 Some(relocated_value) => Ok(relocated_value),
@@ -421,10 +413,7 @@ mod tests {
     #[test]
     fn add_int_int_rel_offset_exceeded() {
         let addr = MaybeRelocatable::Int(bigint_str!(b"18446744073709551616"));
-        let relocatable = Relocatable {
-            offset: 0,
-            segment_index: 0,
-        };
+        let relocatable = Relocatable::from((0, 0));
         let error = addr.add_mod(
             &MaybeRelocatable::RelocatableValue(relocatable),
             &bigint_str!(b"18446744073709551617"),
