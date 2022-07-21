@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 use crate::serde::deserialize_program::ValueAddress;
 use crate::types::instruction::Register;
 use nom::{
@@ -457,7 +456,67 @@ mod tests {
     }
 
     #[test]
-    fn outer_brackets_test() {}
+    fn outer_brackets_test() {
+        let deref_value = "[cast([fp])]";
+        let parsed_deref = outer_brackets(deref_value);
+        assert_eq!(parsed_deref, Ok(("cast([fp])", true)));
+
+        let ref_value = "cast([fp])";
+        let parsed_ref = outer_brackets(ref_value);
+        assert_eq!(parsed_ref, Ok(("cast([fp])", false)));
+    }
+
+    #[test]
+    fn take_cast_test() {
+        let value = "cast([fp + (-1)], felt*)";
+        let parsed = take_cast(value);
+        assert_eq!(parsed, Ok(("[fp + (-1)], felt*", "")));
+    }
+
+    #[test]
+    fn take_cast_first_arg_test() {
+        let value = "cast([fp + (-1)] + (-1), felt*)";
+        let parsed = take_cast_first_arg(value);
+        assert_eq!(parsed, Ok(("[fp + (-1)] + (-1)", ", felt*")));
+    }
+
+    #[test]
+    fn parse_register_test() {
+        let value = "fp + (-1)";
+        let parsed = register(value);
+        assert_eq!(parsed, Ok((" + (-1)", Register::FP)));
+    }
+
+    #[test]
+    fn parse_offset_test() {
+        let value_1 = " + (-1)";
+        let parsed_1 = offset(value_1);
+        assert_eq!(parsed_1, Ok(("", -1_i32)));
+
+        let value_2 = " + 1";
+        let parsed_2 = offset(value_2);
+        assert_eq!(parsed_2, Ok(("1", 1_i32)));
+    }
+
+    #[test]
+    fn parse_register_and_offset_test() {
+        let value_1 = "fp + 1";
+        let parsed_1 = register_and_offset(value_1);
+
+        assert_eq!(parsed_1, Ok(("1", (Register::FP, 1_i32))));
+
+        let value_2 = "ap + (-1)";
+        let parsed_2 = register_and_offset(value_2);
+
+        assert_eq!(parsed_2, Ok(("", (Register::AP, -1_i32))));
+    }
+
+    #[test]
+    fn inside_brackets_test() {
+        let value = "[fp + (-1)] + 2";
+        let parsed = inside_brackets(value);
+        assert_eq!(parsed, Ok((" + 2", (Register::FP, -1_i32))));
+    }
 
     #[test]
     fn parse_value_test() {
