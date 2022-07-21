@@ -16,6 +16,8 @@ hex = "0.4.3"
 bincode = "1.2.1"
 starknet-crypto = "0.1.0"
 clap = { version = "3.2.5", features = ["derive"] }
+nom = "7"
+parse-hyperlinks = "0.23.3"
 
 [dev-dependencies.rusty-hook]
 version = "0.11"

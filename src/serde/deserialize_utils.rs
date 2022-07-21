@@ -1,7 +1,16 @@
+#[allow(dead_code)]
 use crate::serde::deserialize_program::ValueAddress;
 use crate::types::instruction::Register;
+use nom::{
+    branch::alt,
+    bytes::{complete::take_until, streaming::tag},
+    combinator::{map_res, opt},
+    sequence::{delimited, tuple},
+    IResult,
+};
 use num_bigint::{BigInt, ParseBigIntError};
 use num_integer::Integer;
+use parse_hyperlinks::take_until_unbalanced;
 use std::fmt;
 use std::num::{IntErrorKind, ParseIntError};
 
@@ -39,6 +48,92 @@ pub fn maybe_add_padding(mut hex: String) -> String {
         return hex;
     }
     hex
+}
+
+fn outer_brackets(input: &str) -> IResult<&str, bool> {
+    opt(delimited(
+        tag("["),
+        take_until_unbalanced('[', ']'),
+        tag("]"),
+    ))(input)
+    .map(|(reminder_input, consumed_input_res)| {
+        if let Some(consumed_input) = consumed_input_res {
+            (consumed_input, true)
+        } else {
+            (reminder_input, false)
+        }
+    })
+}
+
+fn take_cast(input: &str) -> IResult<&str, &str> {
+    tuple((
+        tag("cast"),
+        delimited(tag("("), take_until_unbalanced('(', ')'), tag(")")),
+    ))(input)
+    .map(|(consumed_input, (_, inside_parenthesis))| (inside_parenthesis, consumed_input))
+}
+
+fn take_cast_first_arg(input: &str) -> IResult<&str, &str> {
+    let (next_input, _) = take_cast(input)?;
+
+    take_until(",")(next_input)
+        .map(|(consumed_input, cast_first_arg)| (cast_first_arg, consumed_input))
+}
+
+fn register(input: &str) -> IResult<&str, Register> {
+    alt((tag("ap"), tag("fp")))(input).map(|(consumed_input, res)| match res {
+        "ap" => (consumed_input, Register::AP),
+        "fp" => (consumed_input, Register::FP),
+        _ => unreachable!(),
+    })
+}
+
+// Examples:
+// " + (-1)"
+// " + 2"
+fn offset(input: &str) -> IResult<&str, i32> {
+    tuple((
+        alt((tag(" + "), tag(" - "))),
+        opt(delimited(tag("("), take_until(")"), tag(")"))),
+    ))(input)
+    .map(|(consumed_input, res)| {
+        if let Some(offset) = res.1 {
+            // FIXME handle error correctly
+            let num = offset.parse::<i32>().unwrap();
+            (consumed_input, num)
+        } else {
+            // FIXME handle error correctly
+            let num = consumed_input.parse::<i32>().unwrap();
+            (consumed_input, num)
+        }
+    })
+}
+// fp + 2
+// ap + (-1)
+fn register_and_offset(input: &str) -> IResult<&str, (Register, i32)> {
+    tuple((register, offset))(input)
+}
+
+fn inside_brackets(input: &str) -> IResult<&str, (Register, i32)> {
+    map_res(
+        delimited(tag("["), take_until("]"), tag("]")),
+        register_and_offset,
+    )(input)
+    .map(|(consumed_input, res)| {
+        let (_, (register, offset)) = res;
+        (consumed_input, (register, offset))
+    })
+}
+
+// The final parser
+fn parse_value(input: &str) -> IResult<&str, (bool, Option<(Register, i32)>, Option<i32>)> {
+    tuple((
+        outer_brackets,
+        take_cast_first_arg,
+        opt(alt((inside_brackets, register_and_offset))),
+        opt(offset),
+    ))(input)
+    .map(|(consumed_input, res)| (consumed_input, (res.0, res.2, res.3)))
 }
 
 fn parse_register(splitted_value_str: &[&str]) -> Option<Register> {
@@ -359,5 +454,22 @@ mod tests {
         };
 
         assert_eq!(value_address, parsed_value);
+    }
+
+    #[test]
+    fn outer_brackets_test() {}
+
+    #[test]
+    fn parse_value_test() {
+        let value_1 = "[cast([fp + (-1)] + 2, felt*)]";
+        let parsed_1 = parse_value(value_1);
+        assert_eq!(
+            parsed_1,
+            Ok(("2", (true, Some((Register::FP, -1_i32)), Some(2_i32))))
+        );
+
+        let value_2 = "cast(ap + 2, felt*)";
+        let parsed_2 = parse_value(value_2);
+        assert_eq!(parsed_2, Ok(("2", (false, Some((Register::AP, 2)), None))));
     }
 }
