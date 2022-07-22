@@ -199,6 +199,7 @@ impl<'de> de::Visitor<'de> for ValueAddressVisitor {
             Some('c') => deserialize_utils::parse_reference(value).map_err(de::Error::custom)?,
             _c => return Err("Expected '[' or 'c' as first char").map_err(de::Error::custom),
         };
+        //let (_, res) = deserialize_utils::parse_value(value).map_err(de::Error::custom)?;
 
         Ok(res)
     }
