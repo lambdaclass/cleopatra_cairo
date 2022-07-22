@@ -1,17 +1,24 @@
+use crate::bigint;
 use crate::serde::deserialize_program::ValueAddress;
 use crate::types::instruction::Register;
 use nom::{
     branch::alt,
-    bytes::{complete::take_until, streaming::tag},
+    bytes::{
+        complete::{take, take_until},
+        streaming::tag,
+    },
+    character::complete::digit1,
     combinator::{map_res, opt},
     sequence::{delimited, tuple},
     IResult,
 };
 use num_bigint::{BigInt, ParseBigIntError};
 use num_integer::Integer;
+use num_traits::FromPrimitive;
 use parse_hyperlinks::take_until_unbalanced;
 use std::fmt;
 use std::num::{IntErrorKind, ParseIntError};
+use std::str::FromStr;
 
 #[derive(Debug, PartialEq)]
 pub enum ReferenceParseError {
@@ -91,48 +98,95 @@ fn register(input: &str) -> IResult<&str, Register> {
 // " + (-1)"
 // " + 2"
 fn offset(input: &str) -> IResult<&str, i32> {
-    tuple((
-        alt((tag(" + "), tag(" - "))),
-        opt(delimited(tag("("), take_until(")"), tag(")"))),
-    ))(input)
-    .map(|(consumed_input, res)| {
-        if let Some(offset) = res.1 {
-            // FIXME handle error correctly
-            let num = offset.parse::<i32>().unwrap();
-            (consumed_input, num)
-        } else {
-            // FIXME handle error correctly
-            let num = consumed_input.parse::<i32>().unwrap();
-            (consumed_input, num)
-        }
-    })
+    if input == "" {
+        return Ok(("", 0));
+    }
+
+    let (consumed_input_1, _) = opt(alt((tag(" + "), tag(" - "))))(input)?;
+
+    let (consumed_input_2, num) =
+        opt(delimited(tag("("), take_until(")"), tag(")")))(consumed_input_1)?;
+
+    if let Some(n) = num {
+        Ok((consumed_input_2, n.parse::<i32>().unwrap()))
+    } else {
+        map_res(digit1, i32::from_str)(consumed_input_2)
+    }
 }
+
 // fp + 2
 // ap + (-1)
 fn register_and_offset(input: &str) -> IResult<&str, (Register, i32)> {
     tuple((register, offset))(input)
 }
 
-fn inside_brackets(input: &str) -> IResult<&str, (Register, i32)> {
+fn inner_dereference(input: &str) -> IResult<&str, (bool, Register, i32)> {
     map_res(
         delimited(tag("["), take_until("]"), tag("]")),
         register_and_offset,
     )(input)
     .map(|(consumed_input, res)| {
         let (_, (register, offset)) = res;
-        (consumed_input, (register, offset))
+
+        (consumed_input, (true, register, offset))
     })
 }
 
+fn no_inner_dereference(input: &str) -> IResult<&str, (bool, Register, i32)> {
+    let (consumed_input, (register, offset)) = register_and_offset(input)?;
+
+    Ok((consumed_input, (false, register, offset)))
+}
+
 // The final parser
-fn parse_value(input: &str) -> IResult<&str, (bool, Option<(Register, i32)>, Option<i32>)> {
-    tuple((
+// fn parse_value(input: &str) -> IResult<&str, (bool, Option<(Register, i32)>, Option<i32>)> {
+pub fn parse_value(input: &str) -> IResult<&str, ValueAddress> {
+    let (consumed_input, (dereference, _, inner_deref, offs_or_imm)) = tuple((
         outer_brackets,
         take_cast_first_arg,
-        opt(alt((inside_brackets, register_and_offset))),
+        opt(alt((inner_dereference, no_inner_dereference))),
         opt(offset),
-    ))(input)
-    .map(|(consumed_input, res)| (consumed_input, (res.0, res.2, res.3)))
+    ))(input)?;
+
+    let (inner_deref, reg, offs1) = if let Some((inner_deref, reg, offs1)) = inner_deref {
+        (inner_deref, Some(reg), offs1)
+    } else {
+        (false, None, 0)
+    };
+
+    let offset_or_immediate = if let Some(offset_or_immediate) = offs_or_imm {
+        offset_or_immediate
+    } else {
+        0
+    };
+
+    let value_address = if dereference {
+        ValueAddress {
+            register: reg,
+            offset1: offs1,
+            offset2: offset_or_immediate,
+            immediate: None,
+            dereference,
+            inner_dereference: inner_deref,
+        }
+    } else {
+        ValueAddress {
+            register: reg,
+            offset1: offs1,
+            offset2: 0,
+            immediate: Some(bigint!(offset_or_immediate)),
+            dereference,
+            inner_dereference: inner_deref,
+        }
+    };
+
+    Ok((consumed_input, value_address))
+
+    // .map(|(consumed_input, res)| {
+    //     let (dereference, _, )
+
+    //     (consumed_input, (res.0, res.2, res.3))
+    // })
 }
 
 fn parse_register(splitted_value_str: &[&str]) -> Option<Register> {
@@ -495,7 +549,7 @@ mod tests {
 
         let value_2 = " + 1";
         let parsed_2 = offset(value_2);
-        assert_eq!(parsed_2, Ok(("1", 1_i32)));
+        assert_eq!(parsed_2, Ok(("", 1_i32)));
     }
 
     #[test]
@@ -503,7 +557,7 @@ mod tests {
         let value_1 = "fp + 1";
         let parsed_1 = register_and_offset(value_1);
 
-        assert_eq!(parsed_1, Ok(("1", (Register::FP, 1_i32))));
+        assert_eq!(parsed_1, Ok(("", (Register::FP, 1_i32))));
 
         let value_2 = "ap + (-1)";
         let parsed_2 = register_and_offset(value_2);
@@ -514,8 +568,8 @@ mod tests {
     #[test]
     fn inside_brackets_test() {
         let value = "[fp + (-1)] + 2";
-        let parsed = inside_brackets(value);
-        assert_eq!(parsed, Ok((" + 2", (Register::FP, -1_i32))));
+        let parsed = inner_dereference(value);
+        assert_eq!(parsed, Ok((" + 2", (true, Register::FP, -1_i32))));
     }
 
     #[test]
@@ -524,11 +578,59 @@ mod tests {
         let parsed_1 = parse_value(value_1);
         assert_eq!(
             parsed_1,
-            Ok(("2", (true, Some((Register::FP, -1_i32)), Some(2_i32))))
+            // Ok(("2", (true, Some((Register::FP, -1_i32)), Some(2_i32))))
+            Ok((
+                "",
+                ValueAddress {
+                    register: Some(Register::FP),
+                    offset1: -1,
+                    offset2: 2,
+                    immediate: None,
+                    dereference: true,
+                    inner_dereference: true
+                }
+            ))
         );
 
         let value_2 = "cast(ap + 2, felt*)";
         let parsed_2 = parse_value(value_2);
-        assert_eq!(parsed_2, Ok(("2", (false, Some((Register::AP, 2)), None))));
+        assert_eq!(
+            parsed_2,
+            Ok((
+                "",
+                ValueAddress {
+                    register: Some(Register::AP),
+                    offset1: 2,
+                    offset2: 0,
+                    immediate: Some(bigint!(0)),
+                    dereference: false,
+                    inner_dereference: false
+                }
+            ))
+        );
+
+        let value_3 = "cast(825323, felt*)";
+        let parsed_3 = parse_value(value_3);
+        assert_eq!(
+            parsed_3,
+            Ok((
+                "",
+                ValueAddress {
+                    register: None,
+                    offset1: 0,
+                    offset2: 0,
+                    immediate: Some(bigint!(825323)),
+                    dereference: false,
+                    inner_dereference: false
+                }
+            ))
+        );
     }
+
+    // #[test]
+    // fn asd_test() {
+    //     let a = "";
+    //     let parsed = asd(a);
+    //     assert_eq!(parsed, Ok(("", Some(""))));
+    // }
 }
