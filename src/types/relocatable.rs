@@ -141,6 +141,14 @@ impl MaybeRelocatable {
                 }
                 Err(VirtualMachineError::DiffIndexSub)
             }
+            (MaybeRelocatable::RelocatableValue(rel_a), MaybeRelocatable::Int(ref num_b)) => {
+                Ok(MaybeRelocatable::from((
+                    rel_a.segment_index,
+                    (rel_a.offset - num_b)
+                        .to_usize()
+                        .ok_or_else(|| VirtualMachineError::OffsetExceeded(rel_a.offset - num_b))?,
+                )))
+            }
             _ => Err(VirtualMachineError::NotImplemented),
         }
     }
@@ -423,9 +431,8 @@ mod tests {
     fn sub_int_addr_ref_from_relocatable_addr_ref() {
         let addr_a = &MaybeRelocatable::from((7, 17));
         let addr_b = &MaybeRelocatable::from(bigint!(5));
-        let error = addr_a.sub(addr_b, &bigint!(23));
-        assert_eq!(error, Err(VirtualMachineError::NotImplemented));
-        assert_eq!(error.unwrap_err().to_string(), "This is not implemented");
+        let addr_c = addr_a.sub(addr_b, &bigint!(23));
+        assert_eq!(addr_c, Ok(MaybeRelocatable::from((7, 12))));
     }
 
     #[test]

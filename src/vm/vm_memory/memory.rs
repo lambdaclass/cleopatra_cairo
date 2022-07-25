@@ -100,6 +100,15 @@ impl Memory {
         }
     }
 
+    pub fn get_relocatable(&self, key: &Relocatable) -> Result<&Relocatable, VirtualMachineError> {
+        match self.get(&MaybeRelocatable::from((key.segment_index, key.offset))) {
+            Ok(Some(MaybeRelocatable::RelocatableValue(rel))) => Ok(rel),
+            Ok(_) => Err(VirtualMachineError::ExpectedRelocatable(
+                MaybeRelocatable::from((key.segment_index, key.offset)),
+            )),
+            Err(memory_error) => Err(VirtualMachineError::MemoryError(memory_error)),
+        }
+    }
     pub fn add_validation_rule(&mut self, segment_index: usize, rule: ValidationRule) {
         self.validation_rules.insert(segment_index, rule);
     }
