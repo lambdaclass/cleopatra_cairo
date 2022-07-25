@@ -231,6 +231,12 @@ fn cairo_run_squash_dict() {
 }
 
 #[test]
+fn cairo_run_dict_squash() {
+    cairo_run::cairo_run(Path::new("cairo_programs/dict_squash.json"), false)
+        .expect("Couldn't run program");
+}
+
+#[test]
 fn cairo_run_set_add() {
     cairo_run::cairo_run(Path::new("cairo_programs/set_add.json"), false)
         .expect("Couldn't run program");
